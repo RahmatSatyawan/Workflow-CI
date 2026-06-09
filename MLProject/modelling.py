@@ -36,6 +36,8 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--img_size", type=int, default=200)
     parser.add_argument("--data_dir", type=str, default="flowers_preprocessing")
+    parser.add_argument('--alpha', type=float, default=0.01, help="Alpha parameter for MLflow")
+    parser.add_argument('--l1_ratio', type=float, default=0.5, help="L1 ratio parameter for MLflow")
     return parser.parse_args()
 
 
