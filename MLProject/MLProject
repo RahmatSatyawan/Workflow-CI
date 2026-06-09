@@ -1,0 +1,29 @@
+name: flowers-classification
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      learning_rate:
+        type: float
+        default: 0.001
+      epochs:
+        type: int
+        default: 20
+      batch_size:
+        type: int
+        default: 32
+      img_size:
+        type: int
+        default: 200
+      data_dir:
+        type: str
+        default: "flowers_preprocessing"
+    command: >
+      python modelling.py
+        --learning_rate {learning_rate}
+        --epochs {epochs}
+        --batch_size {batch_size}
+        --img_size {img_size}
+        --data_dir {data_dir}
