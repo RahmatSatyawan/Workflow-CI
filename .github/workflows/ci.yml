@@ -29,8 +29,6 @@ jobs:
       - name: Train model with MLflow
         shell: bash -l {0} # <--- KRUSIAL: Membuka login-shell agar conda otomatis aktif
         run: |
-          # Tidak perlu 'conda init' atau 'conda activate' lagi! 
-          # Environment 'mlflow-env' sudah otomatis aktif berkat 'shell: bash -l {0}'
           mlflow run MLProject -P alpha=0.01 -P l1_ratio=0.5
 
       - name: Upload model artifact

@@ -171,8 +171,8 @@ def main():
     )
     model.summary()
 
-    mlflow.set_experiment(EXPERIMENT_NAME)
-    mlflow.tensorflow.autolog()
+    # mlflow.set_experiment(EXPERIMENT_NAME)
+     mlflow.tensorflow.autolog()
 
     callbacks = [
         EarlyStopping(
