@@ -5,15 +5,13 @@ Melatih model CNN (MobileNetV2 + Custom Layers) untuk klasifikasi bunga
 menggunakan MLflow Tracking UI dengan autolog.
 
 Cara penggunaan:
-    python modelling.py
-
-Pastikan MLflow tracking server berjalan, atau biarkan MLflow menyimpan
-secara lokal (default: ./mlruns).
+    python modelling.py --epochs 10 --batch_size 32 --img_size 200 --data_dir ../../preprocessing/flowers_preprocessing
 """
 
+import argparse
 import json
 from pathlib import Path
-import numpy as np
+
 import tensorflow as tf
 import mlflow
 import mlflow.tensorflow
@@ -22,41 +20,50 @@ from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import (
     Conv2D, MaxPooling2D, Flatten, Dense,
-    Dropout, BatchNormalization, GlobalAveragePooling2D
+    Dropout, BatchNormalization
 )
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
-# ── Konfigurasi ───────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent
-CANDIDATE_PREPROCESSING_DIRS = [
-    BASE_DIR / "flowers_preprocessing",
-    BASE_DIR / "preprocessing" / "flowers_preprocessing",
-]
-PREPROCESSING_DIR = next(
-    (p.resolve() for p in CANDIDATE_PREPROCESSING_DIRS if p.exists()),
-    None,
-)
-
-if PREPROCESSING_DIR is None:
-    raise FileNotFoundError(
-        "Tidak menemukan folder preprocessing. Periksa apakah folder flowers_preprocessing ada."
-    )
-
-TRAIN_DIR = str(PREPROCESSING_DIR / "train")
-VAL_DIR = str(PREPROCESSING_DIR / "validation")
-TEST_DIR = str(PREPROCESSING_DIR / "test")
-METADATA_PATH = str(PREPROCESSING_DIR / "metadata.json")
-
-IMG_HEIGHT  = 200
-IMG_WIDTH   = 200
-BATCH_SIZE  = 32
-EPOCHS      = 20
-
 EXPERIMENT_NAME = "flowers-classification"
 
 
-# ── Muat Metadata ──────────────────────────────────────────────────────────────
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train flowers classifier with MLflow")
+    parser.add_argument("--learning_rate", type=float, default=1e-3)
+    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--img_size", type=int, default=200)
+    parser.add_argument("--data_dir", type=str, default="flowers_preprocessing")
+    return parser.parse_args()
+
+
+def resolve_preprocessing_dir(data_dir: str) -> Path:
+    raw_path = Path(data_dir)
+    candidates = []
+
+    if raw_path.is_absolute():
+        candidates.append(raw_path)
+    else:
+        candidates.extend([
+            BASE_DIR / raw_path,
+            BASE_DIR / "preprocessing" / raw_path,
+            BASE_DIR.parent.parent / raw_path,
+            BASE_DIR.parent.parent / "preprocessing" / raw_path,
+            BASE_DIR.parent / raw_path,
+        ])
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.resolve()
+
+    raise FileNotFoundError(
+        f"Tidak menemukan folder preprocessing untuk data_dir={data_dir}. "
+        f"Dicoba: {', '.join(str(c) for c in candidates)}"
+    )
+
+
 def load_metadata(path):
     path = Path(path)
     if not path.exists():
@@ -65,58 +72,51 @@ def load_metadata(path):
         return json.load(f)
 
 
-# ── Buat Data Generator ────────────────────────────────────────────────────────
-def create_generators(train_dir, val_dir, test_dir,
-                       img_h=IMG_HEIGHT, img_w=IMG_WIDTH,
-                       batch_size=BATCH_SIZE):
+def create_generators(train_dir, val_dir, test_dir, img_h, img_w, batch_size):
     train_datagen = ImageDataGenerator(
-        rescale            = 1./255,
-        rotation_range     = 20,
-        width_shift_range  = 0.2,
-        height_shift_range = 0.2,
-        shear_range        = 0.15,
-        zoom_range         = 0.2,
-        horizontal_flip    = True,
-        fill_mode          = 'nearest'
+        rescale=1. / 255,
+        rotation_range=20,
+        width_shift_range=0.2,
+        height_shift_range=0.2,
+        shear_range=0.15,
+        zoom_range=0.2,
+        horizontal_flip=True,
+        fill_mode='nearest'
     )
-    val_test_datagen = ImageDataGenerator(rescale=1./255)
+    val_test_datagen = ImageDataGenerator(rescale=1. / 255)
 
     train_gen = train_datagen.flow_from_directory(
         train_dir,
-        target_size = (img_h, img_w),
-        batch_size  = batch_size,
-        class_mode  = 'categorical',
-        shuffle     = True,
-        seed        = 42
+        target_size=(img_h, img_w),
+        batch_size=batch_size,
+        class_mode='categorical',
+        shuffle=True,
+        seed=42
     )
     val_gen = val_test_datagen.flow_from_directory(
         val_dir,
-        target_size = (img_h, img_w),
-        batch_size  = batch_size,
-        class_mode  = 'categorical',
-        shuffle     = False
+        target_size=(img_h, img_w),
+        batch_size=batch_size,
+        class_mode='categorical',
+        shuffle=False
     )
     test_gen = val_test_datagen.flow_from_directory(
         test_dir,
-        target_size = (img_h, img_w),
-        batch_size  = batch_size,
-        class_mode  = 'categorical',
-        shuffle     = False
+        target_size=(img_h, img_w),
+        batch_size=batch_size,
+        class_mode='categorical',
+        shuffle=False
     )
     return train_gen, val_gen, test_gen
 
 
-# ── Bangun Model ───────────────────────────────────────────────────────────────
-def build_model(input_shape, num_classes):
-    """
-    MobileNetV2 (frozen) + Custom CNN head.
-    """
+def build_model(input_shape, num_classes, learning_rate):
     base_model = MobileNetV2(
-        input_shape  = input_shape,
-        include_top  = False,
-        weights      = 'imagenet'
+        input_shape=input_shape,
+        include_top=False,
+        weights='imagenet'
     )
-    base_model.trainable = False  # Freeze base
+    base_model.trainable = False
 
     model = Sequential([
         base_model,
@@ -132,81 +132,86 @@ def build_model(input_shape, num_classes):
     ], name='MobileNetV2_Flowers')
 
     model.compile(
-        optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3),
-        loss      = 'categorical_crossentropy',
-        metrics   = ['accuracy']
+        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+        loss='categorical_crossentropy',
+        metrics=['accuracy']
     )
     return model
 
 
-# ── Main ───────────────────────────────────────────────────────────────────────
 def main():
-    # Muat metadata
-    metadata    = load_metadata(METADATA_PATH)
+    args = parse_args()
+    preprocessing_dir = resolve_preprocessing_dir(args.data_dir)
+
+    train_dir = preprocessing_dir / 'train'
+    val_dir = preprocessing_dir / 'validation'
+    test_dir = preprocessing_dir / 'test'
+    metadata_path = preprocessing_dir / 'metadata.json'
+
+    metadata = load_metadata(metadata_path)
     class_names = metadata['class_names']
     num_classes = metadata['num_classes']
 
     print(f"Kelas    : {class_names}")
     print(f"N kelas  : {num_classes}")
 
-    # Data generators
     train_gen, val_gen, test_gen = create_generators(
-        TRAIN_DIR, VAL_DIR, TEST_DIR
+        str(train_dir),
+        str(val_dir),
+        str(test_dir),
+        img_h=args.img_size,
+        img_w=args.img_size,
+        batch_size=args.batch_size
     )
 
-    # Bangun model
     model = build_model(
-        input_shape = (IMG_HEIGHT, IMG_WIDTH, 3),
-        num_classes = num_classes
+        input_shape=(args.img_size, args.img_size, 3),
+        num_classes=num_classes,
+        learning_rate=args.learning_rate
     )
     model.summary()
 
-    # MLflow setup
     mlflow.set_experiment(EXPERIMENT_NAME)
-    mlflow.tensorflow.autolog()          # ← Autolog aktif
+    mlflow.tensorflow.autolog()
 
     callbacks = [
         EarlyStopping(
-            monitor    = 'val_loss',
-            patience   = 5,
-            restore_best_weights = True,
-            verbose    = 1
+            monitor='val_loss',
+            patience=5,
+            restore_best_weights=True,
+            verbose=1
         ),
         ReduceLROnPlateau(
-            monitor  = 'val_loss',
-            factor   = 0.5,
-            patience = 3,
-            verbose  = 1
+            monitor='val_loss',
+            factor=0.5,
+            patience=3,
+            verbose=1
         )
     ]
 
     with mlflow.start_run(run_name="baseline_autolog"):
-        # Simpan parameter tambahan
-        mlflow.log_param("img_height",   IMG_HEIGHT)
-        mlflow.log_param("img_width",    IMG_WIDTH)
-        mlflow.log_param("batch_size",   BATCH_SIZE)
-        mlflow.log_param("epochs",       EPOCHS)
-        mlflow.log_param("num_classes",  num_classes)
-        mlflow.log_param("base_model",   "MobileNetV2")
-        mlflow.log_param("optimizer",    "Adam")
-        mlflow.log_param("learning_rate",1e-3)
+        mlflow.log_param("img_height", args.img_size)
+        mlflow.log_param("img_width", args.img_size)
+        mlflow.log_param("batch_size", args.batch_size)
+        mlflow.log_param("epochs", args.epochs)
+        mlflow.log_param("num_classes", num_classes)
+        mlflow.log_param("base_model", "MobileNetV2")
+        mlflow.log_param("optimizer", "Adam")
+        mlflow.log_param("learning_rate", args.learning_rate)
 
-        # Latih model
-        history = model.fit(
+        model.fit(
             train_gen,
-            epochs            = EPOCHS,
-            validation_data   = val_gen,
-            callbacks         = callbacks,
-            verbose           = 1
+            epochs=args.epochs,
+            validation_data=val_gen,
+            callbacks=callbacks,
+            verbose=1
         )
 
-        # Evaluasi pada test set
         test_loss, test_acc = model.evaluate(test_gen, verbose=0)
         print(f"\nTest Loss     : {test_loss:.4f}")
         print(f"Test Accuracy : {test_acc:.4f} ({test_acc*100:.2f}%)")
 
-        # Log metrik test secara manual
-        mlflow.log_metric("test_loss",     test_loss)
+        mlflow.log_metric("test_loss", test_loss)
         mlflow.log_metric("test_accuracy", test_acc)
 
         print("\nMLflow run selesai. Buka MLflow UI:")

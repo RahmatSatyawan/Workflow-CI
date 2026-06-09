@@ -1,0 +1,29 @@
+{
+  "class_names": [
+    "daisy",
+    "dandelion",
+    "rose",
+    "sunflower",
+    "tulip"
+  ],
+  "class_indices": {
+    "daisy": 0,
+    "dandelion": 1,
+    "rose": 2,
+    "sunflower": 3,
+    "tulip": 4
+  },
+  "num_classes": 5,
+  "img_height": 200,
+  "img_width": 200,
+  "split_ratio": {
+    "train": 0.7,
+    "validation": 0.15,
+    "test": 0.15
+  },
+  "samples": {
+    "train": 3019,
+    "validation": 644,
+    "test": 654
+  }
+}

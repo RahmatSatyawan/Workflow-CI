@@ -3,78 +3,68 @@ name: CI - MLflow Training Pipeline
 on:
   push:
     branches: [main]
-  workflow_dispatch: # Bisa dipantik manual dari GitHub UI
+  workflow_dispatch:
   schedule:
-    - cron: "0 0 * * 0" # Setiap Minggu pukul 00:00 UTC
+    - cron: "0 0 * * 0"
 
 jobs:
   train:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
 
     steps:
-      # ── 1. Checkout repository ───────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Setup Python ──────────────────────────────────────────────────────
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12.7"
+          python-version: "3.12.4"
 
-      # ── 3. Install Conda / Miniconda ─────────────────────────────────────────
-      - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          auto-update-conda: true
-          python-version: "3.12.7"
+      - name: Install workflow dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install kagglehub pillow
 
-      # ── 4. Install MLflow ─────────────────────────────────────────────────────
-      - name: Install MLflow
-        run: pip install mlflow==2.19.0
-
-      # ── 5. Download Dataset & Preprocessing ──────────────────────────────────
-      - name: Install preprocessing dependencies
-        run: pip install kagglehub pillow tensorflow==2.17.1
-
-      - name: Run preprocessing
+      - name: Download dataset and preprocess
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
-          cd MLProject
-          python -c "
-          import kagglehub, os, sys
-          sys.path.insert(0, '.')
-          path = kagglehub.dataset_download('alxmamaev/flowers-recognition')
-          flowers_dir = os.path.join(path, 'flowers')
-          # Jalankan automate script dari folder eksperimen
+          python - <<'PY'
           import subprocess
-          subprocess.run([
-              'python', '../preprocessing/automate_Nama-siswa.py',
-              '--src', flowers_dir,
-              '--dest', 'flowers_preprocessing'
-          ], check=True)
-          "
+          import sys
+          from pathlib import Path
+          import kagglehub
 
-      # ── 6. Jalankan MLflow Project ────────────────────────────────────────────
-      - name: Run MLflow Project
+          repo_root = Path.cwd()
+          path = kagglehub.dataset_download('alxmamaev/flowers-recognition')
+          flowers_dir = Path(path) / 'flowers'
+          preprocess_script = repo_root / 'preprocessing' / 'automate_Rahmat-Satyawan.py'
+          dest_dir = repo_root / 'preprocessing' / 'flowers_preprocessing'
+
+          subprocess.run(
+              [sys.executable, str(preprocess_script), '--src', str(flowers_dir), '--dest', str(dest_dir)],
+              check=True,
+          )
+          PY
+
+      - name: Train model with modelling.py
         run: |
-          cd Workflow-CI
-          mlflow run MLProject \
-            -P learning_rate=0.001 \
-            -P epochs=20 \
-            -P batch_size=32 \
-            -P img_size=200 \
-            -P data_dir=flowers_preprocessing \
-            --env-manager=conda
+          python modelling.py \
+            --learning_rate 0.001 \
+            --epochs 5 \
+            --batch_size 32 \
+            --img_size 200 \
+            --data_dir preprocessing/flowers_preprocessing
 
-      # ── 7. Upload artefak (model) ke GitHub ──────────────────────────────────
       - name: Upload model artifact
         uses: actions/upload-artifact@v4
         with:
           name: flowers-model-${{ github.run_number }}
           path: |
-            Workflow-CI/MLProject/saved_model/
-            Workflow-CI/MLProject/mlruns/
+            mlruns/
           retention-days: 30
