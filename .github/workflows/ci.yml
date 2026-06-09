@@ -35,7 +35,7 @@ jobs:
 
       # ── 5. Download Dataset & Preprocessing ──────────────────────────────────
       - name: Install preprocessing dependencies
-        run: pip install kagglehub pillow tensorflow==2.15.0
+        run: pip install kagglehub pillow tensorflow==2.17.1
 
       - name: Run preprocessing
         env:
