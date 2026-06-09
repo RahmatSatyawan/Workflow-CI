@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Rahmat/OneDrive/Documents/Desktop/files/Membangun%20Model/Workflow-CI/mlruns/0/e94822183e244033bdecb4466db519a9/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: e94822183e244033bdecb4466db519a9
+run_name: languid-goose-454
+run_uuid: e94822183e244033bdecb4466db519a9
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1781003930347
+status: 1
+tags: []
+user_id: Rahmat
