@@ -31,7 +31,7 @@ jobs:
 
       - name: Create conda environment from conda.yaml
         run: |
-          conda env create -f Workflow-CI/MLProject/conda.yaml
+              conda env create -f MLProject/conda.yaml
 
       - name: Ambil data dari flowers_preprocessing
         run: |
@@ -41,7 +41,7 @@ jobs:
       - name: Train model with MLflow
         run: |
           source activate mlflow-env
-          mlflow run Workflow-CI/MLProject -P alpha=0.01 -P l1_ratio=0.5
+          mlflow run MLProject -P alpha=0.01 -P l1_ratio=0.5
           
       
       - name: Upload model artifact
