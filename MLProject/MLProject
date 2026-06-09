@@ -20,4 +20,11 @@ entry_points:
       data_dir:
         type: str
         default: "flowers_preprocessing"
+      alpha:
+        type: float
+        default: 0.01
+      l1_ratio:
+        type: float
+        default: 0.5
+
     command: "python modelling.py --learning_rate {learning_rate} --epochs {epochs} --batch_size {batch_size} --img_size {img_size} --data_dir {data_dir} --alpha {alpha} --l1_ratio {l1_ratio}"
