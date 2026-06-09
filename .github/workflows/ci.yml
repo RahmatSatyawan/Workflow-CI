@@ -33,11 +33,9 @@ jobs:
         run: |
           conda env create -f MLProject/conda.yaml
 
-      - name: Install MLflow
+      - name: configure conda for GitHub Actions
         run: |
           conda init bash
-          conda activate mlflow-env
-          pip install mlflow
 
       - name: Train model with MLflow
         run: |
