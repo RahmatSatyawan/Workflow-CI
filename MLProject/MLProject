@@ -10,7 +10,7 @@ entry_points:
         default: 0.001
       epochs:
         type: int
-        default: 20
+        default: 10
       batch_size:
         type: int
         default: 32
@@ -20,10 +20,4 @@ entry_points:
       data_dir:
         type: str
         default: "flowers_preprocessing"
-    command: >
-      python modelling.py
-        --learning_rate {learning_rate}
-        --epochs {epochs}
-        --batch_size {batch_size}
-        --img_size {img_size}
-        --data_dir {data_dir}
+    command: "python modelling.py --learning_rate {learning_rate} --epochs {epochs} --batch_size {batch_size} --img_size {img_size} --data_dir {data_dir} --alpha {alpha} --l1_ratio {l1_ratio}"
