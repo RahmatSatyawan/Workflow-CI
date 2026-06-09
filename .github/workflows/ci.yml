@@ -33,11 +33,6 @@ jobs:
         run: |
               conda env create -f MLProject/conda.yaml
 
-      - name: Ambil data dari flowers_preprocessing
-        run: |
-          mkdir -p data
-          cp -r flowers_preprocessing/data/* data/
-
       - name: Train model with MLflow
         run: |
           source activate mlflow-env
